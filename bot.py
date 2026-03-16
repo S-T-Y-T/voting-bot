@@ -8,6 +8,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.exceptions import TelegramForbiddenError
 
 import config
 
@@ -68,8 +69,11 @@ async def save_channel_message(channel, message_id):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 async def get_channel_messages():
-    with open(CHANNEL_MESSAGES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(CHANNEL_MESSAGES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
 
 async def update_channel_votes():
     votes_count = await get_votes()
@@ -219,7 +223,10 @@ async def contact(message: types.Message):
     option = user_choice[user]
     await save_vote(user, phone, option)
     await update_channel_votes()
-    await message.answer("Ovozingiz qabul qilindi")
+    try:
+        await message.answer("Ovozingiz qabul qilindi")
+    except TelegramForbiddenError:
+        pass
 
 # ---------------- ADMIN PANEL ----------------
 @dp.message(Command("admin"))
