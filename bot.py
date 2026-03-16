@@ -17,6 +17,7 @@ bot = Bot(token=config.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.
 dp = Dispatcher()
 
 DB_FILE = "votes.json"
+CHANNEL_MESSAGES_FILE = "channel_messages.json"
 user_choice = {}
 
 # ---------------- JSON DATABASE ----------------
@@ -24,6 +25,9 @@ async def init_db():
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump([], f)
+    if not os.path.exists(CHANNEL_MESSAGES_FILE):
+        with open(CHANNEL_MESSAGES_FILE, "w", encoding="utf-8") as f:
+            json.dump({}, f)
 
 async def save_vote(user_id, phone, vote):
     with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -54,7 +58,43 @@ async def get_votes():
     for item in data:
         if item["vote"] in votes_count:
             votes_count[item["vote"]] += 1
-    return votes_count 
+    return votes_count
+
+async def save_channel_message(channel, message_id):
+    with open(CHANNEL_MESSAGES_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data[channel] = message_id
+    with open(CHANNEL_MESSAGES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+async def get_channel_messages():
+    with open(CHANNEL_MESSAGES_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+async def update_channel_votes():
+    votes_count = await get_votes()
+    channel_messages = await get_channel_messages()
+    caption = ("🏆 Qoʻshtepa tumanida eng namunali «Mahalla yettiligi»ni aniqlaymiz!\n\n"
+               "Hurmatli fuqarolar!\n\n"
+               "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida «Mahalla yettiligi» faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
+               "❓ Sizningcha, qaysi mahallaning «Mahalla yettiligi» jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
+               "🗳 Oʻzingiz munosib deb bilgan mahalla nomi uchun ovoz bering.\n\n"
+               "📅 Ovoz berish muddati: 21-mart kuni soat 23:59 ga qadar.\n\n"
+               "🏅 Soʻrovnoma natijalari 22-mart – «Mahalla tizimi xodimlari kuni» munosabati bilan rasman eʼlon qilinadi.\n\n"
+               "Sizning ovozingiz – eng adolatli baho!\n"
+               "Faol ishtirok eting va eng munosib jamoani qoʻllab-quvvatlang!\n\n"
+               "#soʻrovnoma")
+    
+    for channel, message_id in channel_messages.items():
+        try:
+            await bot.edit_message_caption(
+                chat_id=channel,
+                message_id=message_id,
+                caption=caption,
+                reply_markup=channel_keyboard(votes_count)
+            )
+        except Exception as e:
+            print(f"Failed to update {channel}: {e}") 
 
 # ---------------- BOT LOGIC ----------------
 async def check_sub(user_id):
@@ -171,6 +211,7 @@ async def contact(message: types.Message):
     phone = message.contact.phone_number
     option = user_choice[user]
     await save_vote(user, phone, option)
+    await update_channel_votes()
     await message.answer("Ovozingiz qabul qilindi")
 
 # ---------------- ADMIN PANEL ----------------
@@ -204,13 +245,13 @@ async def do_forward(call: types.CallbackQuery):
     
     votes_count = await get_votes()
     forward_message = await call.message.answer(
-            "🏆 Qoʻshtepa tumanida eng namunali “Mahalla yettiligi”ni aniqlaymiz!\n\n"
+            "🏆 Qoʻshtepa tumanida eng namunali «Mahalla yettiligi»ni aniqlaymiz!\n\n"
             "Hurmatli fuqarolar!\n\n"
-            "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida “Mahalla yettiligi” faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
-            "❓ Sizningcha, qaysi mahallaning “Mahalla yettiligi” jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
+            "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida «Mahalla yettiligi» faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
+            "❓ Sizningcha, qaysi mahallaning «Mahalla yettiligi» jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
             "🗳 Oʻzingiz munosib deb bilgan mahalla nomi uchun ovoz bering.\n\n"
             "📅 Ovoz berish muddati: 21-mart kuni soat 23:59 ga qadar.\n\n"
-            "🏅 Soʻrovnoma natijalari 22-mart – “Mahalla tizimi xodimlari kuni” munosabati bilan rasman eʼlon qilinadi.\n\n"
+            "🏅 Soʻrovnoma natijalari 22-mart – «Mahalla tizimi xodimlari kuni» munosabati bilan rasman eʼlon qilinadi.\n\n"
             "Sizning ovozingiz – eng adolatli baho!\n"
             "Faol ishtirok eting va eng munosib jamoani qoʻllab-quvvatlang!\n\n"
             "#soʻrovnoma",
@@ -239,21 +280,22 @@ async def send_to_channel(call: types.CallbackQuery):
     
     try:
         with open("1.jpg", "rb") as photo:
-            await bot.send_photo(
+            sent_message = await bot.send_photo(
                 channel,
                 photo=types.BufferedInputFile(photo.read(), filename="1.jpg"),
-                caption="🏆 Qoʻshtepa tumanida eng namunali “Mahalla yettiligi”ni aniqlaymiz!\n\n"
+                caption="🏆 Qoʻshtepa tumanida eng namunali «Mahalla yettiligi»ni aniqlaymiz!\n\n"
                 "Hurmatli fuqarolar!\n\n"
-                "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida “Mahalla yettiligi” faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
-                "❓ Sizningcha, qaysi mahallaning “Mahalla yettiligi” jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
+                "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida «Mahalla yettiligi» faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
+                "❓ Sizningcha, qaysi mahallaning «Mahalla yettiligi» jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
                 "🗳 Oʻzingiz munosib deb bilgan mahalla nomi uchun ovoz bering.\n\n"
                 "📅 Ovoz berish muddati: 21-mart kuni soat 23:59 ga qadar.\n\n"
-                "🏅 Soʻrovnoma natijalari 22-mart – “Mahalla tizimi xodimlari kuni” munosabati bilan rasman eʼlon qilinadi.\n\n"
+                "🏅 Soʻrovnoma natijalari 22-mart – «Mahalla tizimi xodimlari kuni» munosabati bilan rasman eʼlon qilinadi.\n\n"
                 "Sizning ovozingiz – eng adolatli baho!\n"
                 "Faol ishtirok eting va eng munosib jamoani qoʻllab-quvvatlang!\n\n"
                 "#soʻrovnoma",
                 reply_markup=channel_keyboard(votes_count)
             )
+        await save_channel_message(channel, sent_message.message_id)
         try:
             await call.answer(f"Xabar {channel} kanaliga muvaffaqiyatli yuborildi!", show_alert=True)
         except:
