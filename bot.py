@@ -208,6 +208,13 @@ async def contact(message: types.Message):
     user = message.from_user.id
     if user not in user_choice:
         return
+    
+    # Проверяем, не голосовал ли уже
+    voted = await user_voted(user)
+    if voted:
+        await message.answer("Siz allaqachon ovoz bergansiz!")
+        return
+    
     phone = message.contact.phone_number
     option = user_choice[user]
     await save_vote(user, phone, option)
