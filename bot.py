@@ -2,15 +2,19 @@ import json
 import csv
 import io
 import os
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
 import config
 
-bot = Bot(token=config.TOKEN)
-dp = Dispatcher(bot)
+BOT_USERNAME = getattr(config, 'BOT_USERNAME', 'qoshtepaNeobot')  # Замените на имя вашего бота
+
+bot = Bot(token=config.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+dp = Dispatcher()
 
 DB_FILE = "votes.json"
 user_choice = {}
@@ -50,7 +54,7 @@ async def get_votes():
     for item in data:
         if item["vote"] in votes_count:
             votes_count[item["vote"]] += 1
-    return votes_count  # {'Участок A': 3, 'Участок B': 5, ...}
+    return votes_count 
 
 # ---------------- BOT LOGIC ----------------
 async def check_sub(user_id):
@@ -63,70 +67,103 @@ async def check_sub(user_id):
             return False
     return True
 
-def vote_keyboard(votes_count):
-    kb = InlineKeyboardMarkup()
+def vote_keyboard(votes_count, add_share_button=False):
+    buttons = []
     for name, count in votes_count.items():
-        kb.add(
+        buttons.append([
             InlineKeyboardButton(
                 text=f"{name} ({count})",
                 callback_data=f"vote_{name}"
             )
-        )
-    return kb
+        ])
+    
+    if add_share_button:
+        buttons.append([InlineKeyboardButton(
+            text=" Ovoz berish",
+            url=f"https://t.me/{BOT_USERNAME}"
+        )])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-@dp.message_handler(commands=["start"])
+def channel_keyboard(votes_count):
+    """Клавиатура для канала - все кнопки ведут в бот"""
+    buttons = []
+    for name, count in votes_count.items():
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{name} ({count})",
+                url=f"https://t.me/{BOT_USERNAME}"
+            )
+        ])
+    
+    buttons.append([InlineKeyboardButton(
+        text="🗳 Ovoz berish",
+        url=f"https://t.me/{BOT_USERNAME}"
+    )])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+@dp.message(Command("start"))
 async def start(message: types.Message):
     votes_count = await get_votes()
     await message.answer(
-        "Выберите участок",
+        "Mahalla yettiligini tanlang",
         reply_markup=vote_keyboard(votes_count)
     )
 
-@dp.callback_query_handler(lambda c: c.data.startswith("vote"))
+@dp.callback_query(F.data.startswith("vote"))
 async def vote(call: types.CallbackQuery):
 
     option = call.data.split("_", 1)[1]  # название участка
     voted = await user_voted(call.from_user.id)
 
     if voted:
-        await call.message.answer("Вы уже голосовали")
+        await call.message.answer("Siz allaqachon ovoz bergansiz")
         return
 
     sub = await check_sub(call.from_user.id)
     if not sub:
-        kb = InlineKeyboardMarkup()
+        buttons = []
         for ch in config.CHANNELS:
-            kb.add(InlineKeyboardButton("Подписаться", url=f"https://t.me/{ch[1:]}"))
-        kb.add(InlineKeyboardButton("Проверить подписку", callback_data="check_sub"))
+            buttons.append([InlineKeyboardButton(text="Obuna bo'lish", url=f"https://t.me/{ch[1:]}")])
+        buttons.append([InlineKeyboardButton(text="Obunani tekshirish", callback_data="check_sub")])
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
         await call.message.answer(
-            "Подпишитесь на каналы",
+            "Kanallarga obuna bo'ling",
             reply_markup=kb
         )
         user_choice[call.from_user.id] = option
         return
 
     user_choice[call.from_user.id] = option
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("Отправить номер", request_contact=True))
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Telefon raqamni jo'natish", request_contact=True)]],
+        resize_keyboard=True
+    )
     await call.message.answer(
-        "Отправьте номер телефона",
+        "Iltimos telefon raqamingizni jo'nating",
         reply_markup=kb
     )
 
-@dp.callback_query_handler(lambda c: c.data == "check_sub")
+@dp.callback_query(F.data == "check_sub")
 async def check(call: types.CallbackQuery):
     sub = await check_sub(call.from_user.id)
     if sub:
-        kb = ReplyKeyboardMarkup(resize_keyboard=True)
-        kb.add(KeyboardButton("Отправить номер", request_contact=True))
+        kb = ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="Telefon raqamni jo'natish", request_contact=True)]],
+            resize_keyboard=True
+        )
         await call.message.answer(
-            "Теперь отправьте номер",
+            "Endi telefon raqamni jo'nating",
             reply_markup=kb
         )
     else:
-        await call.answer("Вы не подписаны", show_alert=True)
+        try:
+            await call.answer("Barcha kanallarga obuna bo'lmadingiz", show_alert=True)
+        except:
+            pass
 
-@dp.message_handler(content_types=["contact"])
+@dp.message(F.contact)
 async def contact(message: types.Message):
     user = message.from_user.id
     if user not in user_choice:
@@ -134,18 +171,100 @@ async def contact(message: types.Message):
     phone = message.contact.phone_number
     option = user_choice[user]
     await save_vote(user, phone, option)
-    await message.answer("Ваш голос принят")
+    await message.answer("Ovozingiz qabul qilindi")
 
 # ---------------- ADMIN PANEL ----------------
-@dp.message_handler(commands=["admin"])
+@dp.message(Command("admin"))
 async def admin(message: types.Message):
     if message.from_user.id not in config.ADMINS:
         return
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("Скачать список голосов", callback_data="export"))
-    await message.answer("Админ панель", reply_markup=kb)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ovozlar ro'yxatini tortib olish", callback_data="export")],
+        [InlineKeyboardButton(text="Ulash imkoniyati", callback_data="forward")]
+    ])
+    await message.answer("Nazoratchi akani paneli", reply_markup=kb)
 
-@dp.callback_query_handler(lambda c: c.data == "export")
+@dp.callback_query(F.data == "forward")
+async def forward_options(call: types.CallbackQuery):
+    if call.from_user.id not in config.ADMINS:
+        return
+    
+    votes_count = await get_votes()
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ulash", callback_data="do_forward")]])
+    await call.message.answer(
+        "Mahalla yettiligini tanlang",
+        reply_markup=vote_keyboard(votes_count)
+    )
+    await call.message.answer("Ushbu ovoz berishni kanallarga ulash:", reply_markup=kb)
+
+@dp.callback_query(F.data == "do_forward")
+async def do_forward(call: types.CallbackQuery):
+    if call.from_user.id not in config.ADMINS:
+        return
+    
+    votes_count = await get_votes()
+    forward_message = await call.message.answer(
+            "🏆 Qoʻshtepa tumanida eng namunali “Mahalla yettiligi”ni aniqlaymiz!\n\n"
+            "Hurmatli fuqarolar!\n\n"
+            "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida “Mahalla yettiligi” faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
+            "❓ Sizningcha, qaysi mahallaning “Mahalla yettiligi” jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
+            "🗳 Oʻzingiz munosib deb bilgan mahalla nomi uchun ovoz bering.\n\n"
+            "📅 Ovoz berish muddati: 21-mart kuni soat 23:59 ga qadar.\n\n"
+            "🏅 Soʻrovnoma natijalari 22-mart – “Mahalla tizimi xodimlari kuni” munosabati bilan rasman eʼlon qilinadi.\n\n"
+            "Sizning ovozingiz – eng adolatli baho!\n"
+            "Faol ishtirok eting va eng munosib jamoani qoʻllab-quvvatlang!\n\n"
+            "#soʻrovnoma",
+        reply_markup=vote_keyboard(votes_count, add_share_button=True)
+    )
+    
+    # Создаем кнопки для пересылки в каналы
+    buttons = []
+    for channel in config.CHANNELS:
+        buttons.append([InlineKeyboardButton(text=f"Ulash {channel}", callback_data=f"send_to_{channel}")])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await call.message.answer("Qaysi kanalga ulashmoqchisiz:", reply_markup=kb)
+    try:
+        await call.answer("Xabar tayyor! Endi uni kerakli kanallarga ulashingiz mumkin.", show_alert=True)
+    except:
+        pass  # Игнорируем ошибку, если callback устарел
+
+@dp.callback_query(F.data.startswith("send_to_"))
+async def send_to_channel(call: types.CallbackQuery):
+    if call.from_user.id not in config.ADMINS:
+        return
+    
+    channel = call.data.replace("send_to_", "")
+    votes_count = await get_votes()
+    
+    try:
+        with open("1.jpg", "rb") as photo:
+            await bot.send_photo(
+                channel,
+                photo=types.BufferedInputFile(photo.read(), filename="1.jpg"),
+                caption="🏆 Qoʻshtepa tumanida eng namunali “Mahalla yettiligi”ni aniqlaymiz!\n\n"
+                "Hurmatli fuqarolar!\n\n"
+                "Qoʻshtepa tumanidagi barcha mahallalar oʻrtasida “Mahalla yettiligi” faoliyati samaradorligini aniqlash maqsadida ochiq onlayn soʻrovnoma oʻtkazilmoqda.\n\n"
+                "❓ Sizningcha, qaysi mahallaning “Mahalla yettiligi” jamoasi eng faol, tashabbuskor va samarali ishlamoqda?\n\n"
+                "🗳 Oʻzingiz munosib deb bilgan mahalla nomi uchun ovoz bering.\n\n"
+                "📅 Ovoz berish muddati: 21-mart kuni soat 23:59 ga qadar.\n\n"
+                "🏅 Soʻrovnoma natijalari 22-mart – “Mahalla tizimi xodimlari kuni” munosabati bilan rasman eʼlon qilinadi.\n\n"
+                "Sizning ovozingiz – eng adolatli baho!\n"
+                "Faol ishtirok eting va eng munosib jamoani qoʻllab-quvvatlang!\n\n"
+                "#soʻrovnoma",
+                reply_markup=channel_keyboard(votes_count)
+            )
+        try:
+            await call.answer(f"Xabar {channel} kanaliga muvaffaqiyatli yuborildi!", show_alert=True)
+        except:
+            pass
+    except Exception as e:
+        try:
+            await call.answer(f"Xatolik: {str(e)}", show_alert=True)
+        except:
+            pass
+
+@dp.callback_query(F.data == "export")
 async def export(call: types.CallbackQuery):
     if call.from_user.id not in config.ADMINS:
         return
@@ -160,15 +279,17 @@ async def export(call: types.CallbackQuery):
 
     await bot.send_document(
         call.from_user.id,
-        types.InputFile(
-            io.BytesIO(output.read().encode('utf-8')),
+        types.BufferedInputFile(
+            output.read().encode('utf-8'),
             filename="votes.csv"
         )
     )
 
 # ---------------- STARTUP ----------------
-async def on_startup(dp):
+async def main():
     await init_db()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    executor.start_polling(dp, on_startup=on_startup)
+    import asyncio
+    asyncio.run(main())
