@@ -3,8 +3,7 @@ TOKEN = "8791049151:AAFnQfzpjhOTeyvv48Ns8ugcO6hWAt8eruA"
 ADMINS = [5896724629,1330391924]  
 
 CHANNELS = [
-    "@qoshtepatumanhokimligi",
-    "@stldev"
+    "@qoshtepatumanhokimligi"
 ]
 
 OPTIONS = [
