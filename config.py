@@ -1,0 +1,60 @@
+TOKEN = "8791049151:AAFnQfzpjhOTeyvv48Ns8ugcO6hWAt8eruA"
+
+ADMINS = [5896724629,1330391924]  
+
+CHANNELS = [
+    "@qoshtepatumanhokimligi",
+    "@stldev"
+]
+
+OPTIONS = [
+    "Sohibkor mahallasi yettiligi",
+    "Karnaychi mahallasi yettiligi",
+    "Soybo‘yi mahallasi yettiligi",
+    "Qiyqi mahallasi yettiligi",
+    "Yangido‘kon mahallasi yettiligi",
+    "Istiqbol mahallasi yettiligi",
+    "Namuna mahallasi yettiligi",
+    "Qumtepa mahallasi yettiligi",
+    "G‘ishtmon mahallasi yettiligi",
+    "Qizilariq mahallasi yettiligi",
+    "Qamishtepa mahallasi yettiligi",
+    "Yo‘ldoshobod mahallasi yettiligi",
+    "Oqtepa mahallasi yettiligi",
+    "Nurafshon mahallasi yettiligi",
+    "Qayrag‘och mahallasi yettiligi",
+    "O‘qchi mahallasi yettiligi",
+    "O‘rta O‘qchi mahallasi yettiligi",
+    "Quvurboshi mahallasi yettiligi",
+    "Sarmozor mahallasi yettiligi",
+    "Eshonguzar mahallasi yettiligi",
+    "Balanmasjid mahallasi yettiligi",
+    "Humdon mahallasi yettiligi",
+    "Qoraqushchi mahallasi yettiligi",
+    "Katta Beshkapa mahallasi yettiligi",
+    "Kichik Beshkapa mahallasi yettiligi",
+    "Kattaboltako‘l mahallasi yettiligi",
+    "Vatan mahallasi yettiligi",
+    "Loyson mahallasi yettiligi",
+    "Dehqonobod mahallasi yettiligi",
+    "Shahartepa mahallasi yettiligi",
+    "Shomirza mahallasi yettiligi",
+    "Paxtakor mahallasi yettiligi",
+    "Borot mahallasi yettiligi",
+    "Garmdon mahallasi yettiligi",
+    "Shodlik mahallasi yettiligi",
+    "Langar mahallasi yettiligi",
+    "Qorakaltak mahallasi yettiligi",
+    "Do‘stlik mahallasi yettiligi",
+    "Do‘rmon mahallasi yettiligi",
+    "Xalqobod mahallasi yettiligi",
+    "Qorajiyda mahallasi yettiligi",
+    "Xo‘jaqishloq mahallasi yettiligi",
+    "Fayz mahallasi yettiligi",
+    "Shakar mahallasi yettiligi",
+    "Ko‘prikboshi mahallasi yettiligi",
+    "Qo‘rg‘oncha mahallasi yettiligi",
+    "Yangiariq mahallasi yettiligi",
+    "Solijonobod mahallasi yettiligi",
+    "Istiqlol mahallasi yettiligi"
+]
